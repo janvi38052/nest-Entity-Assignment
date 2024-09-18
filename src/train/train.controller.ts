@@ -1,34 +1,34 @@
-import { Controller, Get, Post, Body, Put, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete } from '@nestjs/common';
 import { TrainService } from './train.service';
-import { CreateTrainDto , UpdateTrainDto } from './train.dto';
-
+import { CreateTrainDto, UpdateTrainDto } from './train.dto';
+import { Train } from './train.entity';
 
 @Controller('trains')
 export class TrainController {
   constructor(private readonly trainService: TrainService) {}
 
   @Post()
-  create(@Body() createTrainDto: CreateTrainDto) {
+  async create(@Body() createTrainDto: CreateTrainDto): Promise<Train> {
     return this.trainService.create(createTrainDto);
   }
 
   @Get()
-  findAll() {
+  async findAll(): Promise<Train[]> {
     return this.trainService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.trainService.findOne(+id);
+  async findOne(@Param('id') id: number): Promise<Train> {
+    return this.trainService.findOne(id);
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateTrainDto: UpdateTrainDto) {
-    return this.trainService.update(+id, updateTrainDto);
+  async update(@Param('id') id: number, @Body() updateTrainDto: UpdateTrainDto): Promise<void> {
+    await this.trainService.update(id, updateTrainDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.trainService.remove(+id);
+  async remove(@Param('id') id: number): Promise<void> {
+    await this.trainService.remove(id);
   }
 }

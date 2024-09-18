@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Station } from './station.entity';
@@ -9,14 +9,21 @@ import { Train } from 'src/train/train.entity';
 export class StationService {
   constructor(
     @InjectRepository(Station)
-    private stationRepository: Repository<Station>,
-
-    @InjectRepository(Train) 
-    private trainRepository: Repository<Train>,
+    private readonly stationRepository: Repository<Station>,
+    
+    @InjectRepository(Train)
+    private readonly trainRepository: Repository<Train>,
   ) {}
 
   async create(createStationDto: CreateStationDto): Promise<Station> {
-    const newStation = this.stationRepository.create(createStationDto);
+    const { stationName, trainIds } = createStationDto;
+    const newStation = this.stationRepository.create({ stationName });
+
+    if (trainIds && trainIds.length > 0) {
+      const trains = await this.trainRepository.findByIds(trainIds);
+      newStation.trains = trains;
+    }
+
     return this.stationRepository.save(newStation);
   }
 
@@ -25,40 +32,30 @@ export class StationService {
   }
 
   async findOne(stationId: number): Promise<Station> {
-    const station = await this.stationRepository.findOne({
+    return this.stationRepository.findOne({
       where: { stationId },
       relations: ['trains'],
     });
-    if (!station) {
-      throw new NotFoundException(`Station with ID ${stationId} not found`);
-    }
-    return station;
   }
 
-  async update(stationId: number, updateStationDto: UpdateStationDto): Promise<Station> {
-    const station = await this.findOne(stationId);
-    Object.assign(station, updateStationDto);
-    return this.stationRepository.save(station);
+  async update(stationId: number, updateStationDto: UpdateStationDto): Promise<void> {
+    const { trainIds, ...updateData } = updateStationDto;
+    await this.stationRepository.update(stationId, updateData);
+
+    if (trainIds) {
+      const station = await this.stationRepository.findOne({
+        where: { stationId },
+        relations: ['trains'],
+      });
+      if (station) {
+        const trains = await this.trainRepository.findByIds(trainIds);
+        station.trains = trains;
+        await this.stationRepository.save(station);
+      }
+    }
   }
 
   async remove(stationId: number): Promise<void> {
-    const station = await this.findOne(stationId);
-    await this.stationRepository.remove(station);
-  }
-
-
-  async addTrainToStation(stationId: number, trainId: number): Promise<Station> {
-    const station = await this.stationRepository.findOne({ where: { stationId }, relations: ['trains'] });
-    if (!station) {
-      throw new NotFoundException(`Station with ID ${stationId} not found`);
-    }
-
-    const train = await this.trainRepository.findOne({ where: { trainId } });
-    if (!train) {
-      throw new NotFoundException(`Train with ID ${trainId} not found`);
-    }
-
-    station.trains.push(train); 
-    return this.stationRepository.save(station); 
+    await this.stationRepository.delete(stationId);
   }
 }
