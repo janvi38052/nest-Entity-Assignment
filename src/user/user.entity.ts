@@ -15,6 +15,9 @@ export class User {
   @Column()
   email: string;
 
-  @OneToMany(() => Booking, booking => booking.user)
+  @OneToMany(() => Booking, booking => booking.user, {
+    cascade: true,        // This will enable cascade operations (e.g., persist, remove)
+    onDelete: 'CASCADE'   // This will delete all related bookings when a user is deleted
+  })
   bookings: Booking[];
 }

@@ -10,7 +10,7 @@ export const AppDataSource = new DataSource({
     port: 3306,
     username: "root",          
     password: "admin",         
-    database: "datas",           
+    database: "entity",           
     entities: [User, Train, Station, Booking],
     migrations: ["src/migrations/*.ts"],  
     synchronize: false,  

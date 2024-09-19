@@ -10,9 +10,15 @@ export class Booking {
   @Column()
   bookingDate: Date;
 
-  @ManyToOne(() => User, user => user.bookings)
+  @ManyToOne(() => User, user => user.bookings, {
+    cascade: ['insert', 'update'], 
+    onDelete: 'CASCADE' 
+  })
   user: User;
 
-  @ManyToOne(() => Train, train => train.bookings)
+  @ManyToOne(() => Train, train => train.bookings, {
+    cascade: ['insert', 'update'], 
+    onDelete: 'CASCADE' 
+  })
   train: Train;
 }

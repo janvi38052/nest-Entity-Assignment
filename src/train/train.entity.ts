@@ -15,8 +15,11 @@ export class Train {
     @Column()
     trainNumber : string ;
 
-    @OneToMany(() => Booking , booking => booking.train)
-    bookings : Booking [];
+    @OneToMany(() => Booking, booking => booking.train, {
+        cascade: true, 
+        onDelete: 'CASCADE' 
+    })
+    bookings: Booking[];
     
     @ManyToMany(() => Station , station => station.trains ,{
          cascade :true,

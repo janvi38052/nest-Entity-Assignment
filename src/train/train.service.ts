@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Train } from './train.entity';
 import { CreateTrainDto, UpdateTrainDto } from './train.dto';
 import { Booking } from 'src/booking/booking.entity';
@@ -17,21 +17,35 @@ export class TrainService {
 
     @InjectRepository(Station)
     private readonly stationRepository: Repository<Station>,
+
+    private readonly dataSource: DataSource, 
   ) {}
 
   async create(createTrainDto: CreateTrainDto): Promise<Train> {
-    const newTrain = this.trainRepository.create(createTrainDto);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.startTransaction();
 
-    // Handle bookings and stations if provided
-    if (createTrainDto.bookingIds) {
-      newTrain.bookings = await this.bookingRepository.findByIds(createTrainDto.bookingIds);
+    try {
+      const newTrain = this.trainRepository.create(createTrainDto);
+
+      if (createTrainDto.bookingIds) {
+        newTrain.bookings = await this.bookingRepository.findByIds(createTrainDto.bookingIds);
+      }
+
+      if (createTrainDto.stationIds) {
+        newTrain.stations = await this.stationRepository.findByIds(createTrainDto.stationIds);
+      }
+
+      await queryRunner.manager.save(newTrain);
+      await queryRunner.commitTransaction();
+
+      return newTrain;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    if (createTrainDto.stationIds) {
-      newTrain.stations = await this.stationRepository.findByIds(createTrainDto.stationIds);
-    }
-
-    return this.trainRepository.save(newTrain);
   }
 
   async findAll(): Promise<Train[]> {
@@ -46,31 +60,49 @@ export class TrainService {
   }
 
   async update(trainId: number, updateTrainDto: UpdateTrainDto): Promise<void> {
-    // Update train details
-    await this.trainRepository.update(trainId, updateTrainDto);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.startTransaction();
 
-    // Fetch updated train
-    const train = await this.trainRepository.findOne({
-      where: { trainId },
-      relations: ['bookings', 'stations'],
-    });
+    try {
+      const train = await this.trainRepository.findOne({
+        where: { trainId },
+        relations: ['bookings', 'stations'],
+      });
 
-    if (train) {
-      // Update bookings if provided
+      if (!train) throw new Error('Train not found');
+
+      Object.assign(train, updateTrainDto);
+
       if (updateTrainDto.bookingIds) {
         train.bookings = await this.bookingRepository.findByIds(updateTrainDto.bookingIds);
       }
 
-      // Update stations if provided
       if (updateTrainDto.stationIds) {
         train.stations = await this.stationRepository.findByIds(updateTrainDto.stationIds);
       }
 
-      await this.trainRepository.save(train);
+      await queryRunner.manager.save(train);
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
   }
 
   async remove(trainId: number): Promise<void> {
-    await this.trainRepository.delete(trainId);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.startTransaction();
+
+    try {
+      await queryRunner.manager.delete(Train, trainId);
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }
